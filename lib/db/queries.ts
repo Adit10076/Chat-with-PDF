@@ -1,6 +1,4 @@
-import { desc, and, eq, isNull } from 'drizzle-orm';
-import { db } from './drizzle';
-import { activityLogs, teamMembers, teams, users } from './schema';
+import { prisma } from '@/lib/prisma';
 import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/auth/session';
 
@@ -23,98 +21,133 @@ export async function getUser() {
     return null;
   }
 
-  const user = await db
-    .select()
-    .from(users)
-    .where(and(eq(users.id, sessionData.user.id), isNull(users.deletedAt)))
-    .limit(1);
-
-  if (user.length === 0) {
-    return null;
-  }
-
-  return user[0];
-}
-
-export async function updateTeamSubscription(
-  teamId: number,
-  subscriptionData: {
-    stripeSubscriptionId: string | null;
-    stripeProductId: string | null;
-    planName: string | null;
-    subscriptionStatus: string;
-  }
-) {
-  await db
-    .update(teams)
-    .set({
-      ...subscriptionData,
-      updatedAt: new Date()
-    })
-    .where(eq(teams.id, teamId));
-}
-
-export async function getUserWithTeam(userId: number) {
-  const result = await db
-    .select({
-      user: users,
-      teamId: teamMembers.teamId
-    })
-    .from(users)
-    .leftJoin(teamMembers, eq(users.id, teamMembers.userId))
-    .where(eq(users.id, userId))
-    .limit(1);
-
-  return result[0];
-}
-
-export async function getActivityLogs() {
-  const user = await getUser();
-  if (!user) {
-    throw new Error('User not authenticated');
-  }
-
-  return await db
-    .select({
-      id: activityLogs.id,
-      action: activityLogs.action,
-      timestamp: activityLogs.timestamp,
-      ipAddress: activityLogs.ipAddress,
-      userName: users.name
-    })
-    .from(activityLogs)
-    .leftJoin(users, eq(activityLogs.userId, users.id))
-    .where(eq(activityLogs.userId, user.id))
-    .orderBy(desc(activityLogs.timestamp))
-    .limit(10);
-}
-
-export async function getTeamForUser() {
-  const user = await getUser();
-  if (!user) {
-    return null;
-  }
-
-  const result = await db.query.teamMembers.findFirst({
-    where: eq(teamMembers.userId, user.id),
-    with: {
-      team: {
-        with: {
-          teamMembers: {
-            with: {
-              user: {
-                columns: {
-                  id: true,
-                  name: true,
-                  email: true
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+  const user = await prisma.user.findFirst({
+    where: {
+      id: sessionData.user.id,
+      deletedAt: null,
+    },
   });
 
-  return result?.team || null;
+  return user;
+}
+
+export async function getUserById(userId: number) {
+  return await prisma.user.findUnique({
+    where: { id: userId },
+  });
+}
+
+export async function getUserDocuments(userId: number) {
+  return await prisma.document.findMany({
+    where: { userId },
+    orderBy: { uploadedAt: 'desc' },
+  });
+}
+
+export async function getDocument(documentId: number, userId: number) {
+  return await prisma.document.findFirst({
+    where: {
+      id: documentId,
+      userId,
+    },
+  });
+}
+
+export async function createDocument(data: {
+  userId: number;
+  fileName: string;
+  fileSize: number;
+  fileUrl?: string;
+  mimeType: string;
+  pageCount?: number;
+}) {
+  return await prisma.document.create({
+    data,
+  });
+}
+
+export async function deleteDocument(documentId: number, userId: number) {
+  return await prisma.document.deleteMany({
+    where: {
+      id: documentId,
+      userId,
+    },
+  });
+}
+
+export async function getConversation(conversationId: number, userId: number) {
+  return await prisma.conversation.findFirst({
+    where: {
+      id: conversationId,
+      userId,
+    },
+    include: {
+      document: true,
+      messages: {
+        orderBy: { createdAt: 'asc' },
+      },
+    },
+  });
+}
+
+export async function getUserConversations(userId: number) {
+  return await prisma.conversation.findMany({
+    where: { userId },
+    include: {
+      document: true,
+      messages: {
+        take: 1,
+        orderBy: { createdAt: 'desc' },
+      },
+    },
+    orderBy: { updatedAt: 'desc' },
+  });
+}
+
+export async function createConversation(data: {
+  userId: number;
+  documentId: number;
+  title?: string;
+}) {
+  return await prisma.conversation.create({
+    data,
+  });
+}
+
+export async function deleteConversation(conversationId: number, userId: number) {
+  return await prisma.conversation.deleteMany({
+    where: {
+      id: conversationId,
+      userId,
+    },
+  });
+}
+
+export async function createMessage(data: {
+  conversationId: number;
+  userId: number;
+  role: string;
+  content: string;
+}) {
+  return await prisma.message.create({
+    data,
+  });
+}
+
+export async function getConversationMessages(conversationId: number, userId: number) {
+  const conversation = await prisma.conversation.findFirst({
+    where: {
+      id: conversationId,
+      userId,
+    },
+  });
+
+  if (!conversation) {
+    return [];
+  }
+
+  return await prisma.message.findMany({
+    where: { conversationId },
+    orderBy: { createdAt: 'asc' },
+  });
 }

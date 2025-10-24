@@ -1,0 +1,73 @@
+// This is your Prisma schema file for PDF Chat AI
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           Int            @id @default(autoincrement())
+  email        String         @unique
+  name         String?
+  passwordHash String         @map("password_hash")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+  deletedAt    DateTime?      @map("deleted_at")
+  
+  documents    Document[]
+  conversations Conversation[]
+  messages     Message[]
+
+  @@map("users")
+}
+
+model Document {
+  id            Int            @id @default(autoincrement())
+  userId        Int            @map("user_id")
+  fileName      String         @map("file_name")
+  fileSize      Int            @map("file_size")
+  fileUrl       String?        @map("file_url")
+  mimeType      String         @map("mime_type")
+  pageCount     Int?           @map("page_count")
+  uploadedAt    DateTime       @default(now()) @map("uploaded_at")
+  processedAt   DateTime?      @map("processed_at")
+  
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversations Conversation[]
+
+  @@map("documents")
+}
+
+model Conversation {
+  id           Int       @id @default(autoincrement())
+  userId       Int       @map("user_id")
+  documentId   Int       @map("document_id")
+  title        String?
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  document     Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  messages     Message[]
+
+  @@map("conversations")
+}
+
+model Message {
+  id             Int          @id @default(autoincrement())
+  conversationId Int          @map("conversation_id")
+  userId         Int          @map("user_id")
+  role           String       // 'user' or 'assistant'
+  content        String       @db.Text
+  createdAt      DateTime     @default(now()) @map("created_at")
+  
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("messages")
+}
