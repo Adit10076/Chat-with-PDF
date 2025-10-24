@@ -5,7 +5,8 @@ const nextConfig: NextConfig = {
     ppr: true,
     clientSegmentCache: true,
     nodeMiddleware: true
-  }
+  },
+  allowedDevOrigins: ['*']
 };
 
 export default nextConfig;
