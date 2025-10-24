@@ -19,7 +19,12 @@ export async function generateRAGResponse(
     temperature: 0.7,
   });
 
-  const vectorStore = await getVectorStore(collectionName);
+  let vectorStore;
+  try {
+    vectorStore = await getVectorStore(collectionName);
+  } catch (error) {
+    throw new Error('No documents uploaded yet. Please upload a PDF first.');
+  }
   
   const relevantDocs = await vectorStore.similaritySearch(question, 4);
 
