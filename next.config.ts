@@ -7,7 +7,15 @@ const nextConfig: NextConfig = {
     nodeMiddleware: true,
     optimizeCss: false
   },
-  allowedDevOrigins: ['*']
+  serverExternalPackages: ['pdf-parse'],
+  allowedDevOrigins: ['*'],
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      config.externals = config.externals || [];
+      config.externals.push('pdf-parse');
+    }
+    return config;
+  }
 };
 
 export default nextConfig;
