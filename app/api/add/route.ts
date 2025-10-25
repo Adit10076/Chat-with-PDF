@@ -1,33 +1,12 @@
 // app/api/add/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { getChromaClient } from "@/lib/rag/chromadb-client";
-import { getEmbeddings } from "@/lib/rag/embeddings";
-import { processPDF, ProcessedDocument } from "@/lib/rag/pdf-processor"
+import { getVectorStore, createVectorStoreFromDocuments } from "@/lib/rag/vector-store";
+import { processPDF, ProcessedDocument } from "@/lib/rag/pdf-processor";
 
 interface AddDataRequest {
   fileName: string;
   fileBuffer: string; // base64 encoded PDF
 }
-
-let myCollection: any = null;
-
-const getMyCollection = async () => {
-  if (!myCollection) {
-    const client = getChromaClient();
-    const embeddings = getEmbeddings();
-
-    myCollection = await client.getOrCreateCollection({
-      name: "myCollection",
-      embeddingFunction: {
-        generate: async (input: string | string[]) => {
-          const texts = typeof input === "string" ? [input] : input;
-          return embeddings.embedDocuments(texts);
-        },
-      },
-    });
-  }
-  return myCollection;
-};
 
 export async function POST(request: NextRequest) {
   try {
@@ -53,30 +32,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const collection = await getMyCollection();
-    const embeddings = getEmbeddings();
-
-    // Generate embeddings for chunks
-    const vectors = await embeddings.embedDocuments(processedDocs.map(doc => doc.pageContent));
-
-    // Add to Chroma
-    await collection.add({
-      ids: processedDocs.map((_, idx) => `${data.fileName}-${idx + 1}`),
-      documents: processedDocs.map(doc => doc.pageContent),
-      metadatas: processedDocs.map(doc => doc.metadata),
-      embeddings: vectors,
-    });
+    // Create or get local Chroma collection
+    const vectorStore = await createVectorStoreFromDocuments(processedDocs, "myCollection");
 
     return NextResponse.json({
       success: true,
-      message: "PDF added successfully",
+      message: "PDF added successfully to local Chroma!",
       fileName: data.fileName,
       chunksAdded: processedDocs.length,
     });
   } catch (error) {
     console.error("Chroma add error:", error);
     return NextResponse.json(
-      { success: false, message: "Failed to add PDF to Chroma" },
+      { success: false, message: "Failed to add PDF to local Chroma" },
       { status: 500 }
     );
   }

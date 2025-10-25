@@ -4,36 +4,36 @@ import { HumanMessage, AIMessage, BaseMessage } from '@langchain/core/messages';
 
 export async function generateRAGResponse(
   question: string,
-  conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }> = [],
-  collectionName: string = 'documents'
+  conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }> = []
 ): Promise<{ answer: string; sources: string[] }> {
   const apiKey = process.env.GEMINI_API_KEY;
   
   if (!apiKey) {
     throw new Error('GEMINI_API_KEY not configured');
   }
-
+  const collectionName:string = 'myCollection';
   const model = new ChatGoogleGenerativeAI({
     apiKey,
     model: 'gemini-2.5-flash',
     temperature: 0.7,
   });
 
-  let vectorStore;
+  let vectorStore:any;
   try {
     vectorStore = await getVectorStore(collectionName);
-  } catch (error) {
-    throw new Error('No documents uploaded yet. Please upload a PDF first.');
+  } catch (error:any) {
+    throw new Error(error.message
+    );
   }
   
   const relevantDocs = await vectorStore.similaritySearch(question, 4);
 
   const context = relevantDocs
-    .map((doc) => doc.pageContent)
+    .map((doc:any) => doc.pageContent)
     .join('\n\n');
 
   const sources = relevantDocs
-    .map((doc) => (doc.metadata?.source as string) || 'Unknown');
+    .map((doc:any) => (doc.metadata?.source as string) || 'Unknown');
   const uniqueSources = [...new Set(sources)] as string[];
 
   const messages: BaseMessage[] = [];

@@ -28,18 +28,18 @@ function UserMenu() {
   const { data: user } = useSWR<User>('/api/user', fetcher);
   const router = useRouter();
 
-  async function handleSignOut() {
-    await signOut();
-    mutate('/api/user');
+  function handleSignOut() {
+    signOut();
     router.push('/');
   }
 
   if (!user) {
     return (
       <>
-        <Button asChild className="rounded-full">
+        <Button asChild className="rounded-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold px-6 py-3 shadow-lg transform transition-all hover:scale-105">
           <Link href="/sign-up">Sign Up</Link>
         </Button>
+
       </>
     );
   }
@@ -64,8 +64,8 @@ function UserMenu() {
             <span>Dashboard</span>
           </Link>
         </DropdownMenuItem>
-        <form action={handleSignOut} className="w-full">
-          <button type="submit" className="flex w-full">
+        <form className="w-full">
+          <button type="submit" className="flex w-full" onClick={handleSignOut}>
             <DropdownMenuItem className="w-full flex-1 cursor-pointer">
               <LogOut className="mr-2 h-4 w-4" />
               <span>Sign out</span>

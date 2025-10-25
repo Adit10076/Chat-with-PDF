@@ -9,6 +9,6 @@ export function getEmbeddings() {
 
   return new GoogleGenerativeAIEmbeddings({
     apiKey,
-    modelName: 'embedding-001',
+    modelName: 'text-embedding-004',
   });
 }

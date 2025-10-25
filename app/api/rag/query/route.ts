@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: 'No question provided' }, { status: 400 });
     }
 
-    const result = await generateRAGResponse(question, conversationHistory, 'myCollection');
+    const result = await generateRAGResponse(question, conversationHistory)
 
     return NextResponse.json({ success: true, answer: result.answer, sources: result.sources });
   } catch (error: any) {

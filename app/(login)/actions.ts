@@ -91,11 +91,17 @@ export const signUp = validatedAction(signUpSchema, async (data, formData) => {
   redirect('/dashboard');
 });
 
-export async function signOut() {
-  (await cookies()).delete('session');
-  redirect('/sign-in');
-}
 
+export async function signOut() {
+  // get the mutable cookies object
+  const cookieStore = await cookies(); 
+
+  // delete the cookie by name
+  cookieStore.delete('session');
+
+  // server-side redirect
+  redirect('/');
+}
 const updatePasswordSchema = z.object({
   currentPassword: z.string().min(8).max(100),
   newPassword: z.string().min(8).max(100),
