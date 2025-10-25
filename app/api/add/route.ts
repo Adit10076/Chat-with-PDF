@@ -9,12 +9,11 @@ interface AddDataRequest {
   fileBuffer: string; // base64 encoded PDF
 }
 
-const client = getChromaClient();
-
 let myCollection: any = null;
 
 const getMyCollection = async () => {
   if (!myCollection) {
+    const client = getChromaClient();
     const embeddings = getEmbeddings();
 
     myCollection = await client.getOrCreateCollection({
