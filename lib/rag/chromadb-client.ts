@@ -1,21 +1,20 @@
-import { ChromaClient } from 'chromadb';
+import { CloudClient } from "chromadb";
 
-let chromaClient: ChromaClient | null = null;
+let chromaClient: CloudClient | null = null;
 
-export function getChromaClient(): ChromaClient {
+export function getChromaClient(): CloudClient {
   if (!chromaClient) {
-    const tenant = process.env.CHROMADB_TENANT;
-    const database = process.env.CHROMADB_DATABASE;
-    const apiKey = process.env.CHROMADB_API_KEY;
-    const url = process.env.CHROMADB_URL;
+    const url = process.env.CHROMA_URL;          // e.g. "https://myinstance.trychroma.com"
+    const apiKey = process.env.CHROMA_API_KEY;   // Your Chroma Cloud API Key
+    const tenant = process.env.CHROMA_TENANT;    // Your tenant
+    const database = process.env.CHROMA_DATABASE;// Your database
 
-    if (!tenant || !database) {
-      throw new Error('ChromaDB credentials not configured');
+    if (!url || !tenant || !database) {
+      throw new Error("ChromaDB credentials not configured properly");
     }
 
-    chromaClient = new ChromaClient({
-      path: url || 'https://api.trychroma.com',
-      auth: apiKey ? { provider: 'token', credentials: apiKey } : undefined,
+    chromaClient = new CloudClient({
+      apiKey,
       tenant,
       database,
     });

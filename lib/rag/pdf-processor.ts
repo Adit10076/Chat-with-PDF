@@ -1,4 +1,5 @@
-const pdf = require('pdf-parse');
+// @ts-ignore
+import pdf from 'pdf-parse';
 import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';
 import { Document } from '@langchain/core/documents';
 

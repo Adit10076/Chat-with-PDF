@@ -7,38 +7,111 @@ import { Input } from '@/components/ui/input';
 import { Upload, Send, FileText, Loader2, MessageSquare, Sparkles } from 'lucide-react';
 
 export default function ChatPage() {
-  const [messages, setMessages] = useState<Array<{role: string, content: string}>>([]);
+  const [messages, setMessages] = useState<Array<{ role: string, content: string }>>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [uploadedFile, setUploadedFile] = useState<string | null>(null);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle PDF upload
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file && file.type === 'application/pdf') {
-      setUploadedFile(file.name);
+    if (!file || file.type !== 'application/pdf') return;
+
+    setUploadedFile(file);
+    setMessages([{
+      role: 'system',
+      content: `Uploading "${file.name}"...`
+    }]);
+
+    // Convert PDF to base64
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+
+    reader.onload = async () => {
+      const base64Data = (reader.result as string).split(',')[1]; // strip data:application/pdf;base64,
+
+      try {
+        const res = await fetch('/api/add', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fileName: file.name,
+            fileBuffer: base64Data,
+          }),
+        });
+
+        const data = await res.json();
+        if (data.success) {
+          setMessages([{
+            role: 'system',
+            content: `PDF "${file.name}" uploaded successfully! You can now ask questions about the document.`
+          }]);
+        } else {
+          setMessages([{
+            role: 'system',
+            content: '❌ Failed to upload PDF.'
+          }]);
+        }
+      } catch (err) {
+        console.error(err);
+        setMessages([{
+          role: 'system',
+          content: '⚠️ Error uploading PDF.'
+        }]);
+      }
+    };
+
+    reader.onerror = () => {
       setMessages([{
         role: 'system',
-        content: `PDF "${file.name}" uploaded successfully! You can now ask questions about the document.`
+        content: '⚠️ Failed to read PDF file.'
       }]);
-    }
+    };
   };
 
+
+  // Handle sending a question
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || !uploadedFile) return;
 
     const newMessage = { role: 'user', content: inputMessage };
-    setMessages([...messages, newMessage]);
+    setMessages((prev) => [...prev, newMessage]);
     setInputMessage('');
     setIsLoading(true);
 
-    setTimeout(() => {
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: 'This is a demo response. Connect to your backend at /api/chat to enable real AI-powered PDF chat functionality.'
-      }]);
+    try {
+      const res = await fetch('/api/rag/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          question: inputMessage,
+          conversationHistory: messages
+        }),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        setMessages((prev) => [
+          ...prev,
+          { role: 'assistant', content: data.answer }
+        ]);
+      } else {
+        setMessages((prev) => [
+          ...prev,
+          { role: 'assistant', content: 'Error: ' + data.message }
+        ]);
+      }
+    } catch (err) {
+      console.error(err);
+      setMessages((prev) => [
+        ...prev,
+        { role: 'assistant', content: 'Failed to fetch response.' }
+      ]);
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
+
 
   return (
     <section className="flex-1 p-4 lg:p-8">
@@ -89,7 +162,7 @@ export default function ChatPage() {
                       <FileText className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                      <p className="font-medium text-gray-900">{uploadedFile}</p>
+                      <p className="font-medium text-gray-900">{uploadedFile.name}</p>
                       <p className="text-sm text-gray-600">Ready to chat</p>
                     </div>
                   </div>
@@ -129,13 +202,12 @@ export default function ChatPage() {
                       className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                     >
                       <div
-                        className={`max-w-[80%] rounded-2xl px-4 py-3 ${
-                          msg.role === 'user'
-                            ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white'
-                            : msg.role === 'system'
+                        className={`max-w-[80%] rounded-2xl px-4 py-3 ${msg.role === 'user'
+                          ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white'
+                          : msg.role === 'system'
                             ? 'bg-green-100 text-green-800 border border-green-200'
                             : 'bg-gray-100 text-gray-900'
-                        }`}
+                          }`}
                       >
                         {msg.role === 'assistant' && (
                           <div className="flex items-center mb-1">
@@ -156,7 +228,7 @@ export default function ChatPage() {
                   </div>
                 )}
               </CardContent>
-              
+
               <div className="border-t p-4">
                 <div className="flex space-x-2">
                   <Input
@@ -171,15 +243,11 @@ export default function ChatPage() {
                     disabled={!inputMessage.trim() || isLoading}
                     className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
                   >
-                    {isLoading ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                    ) : (
-                      <Send className="w-5 h-5" />
-                    )}
+                    {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
                   </Button>
                 </div>
                 <p className="text-xs text-gray-500 mt-2">
-                  💡 Tip: Connect to the Python backend at port 8000 to enable real AI responses
+                  💡 Tip: Connected to ChromaDB backend for real RAG responses
                 </p>
               </div>
             </Card>
